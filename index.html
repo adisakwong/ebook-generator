@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ebook Generator</title>
+    <meta name="description" content="Generate ebooks with AI - create structure and content automatically.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-book-open"></i>
+                <h1>Ebook Generator</h1>
+            </div>
+            <div class="header-center">
+                <input type="text" id="authorInput" placeholder="กรอกชื่อผู้เขียน..."
+                    value="อดิศักดิ์ วงศ์วิทยาพิทักษ์">
+            </div>
+            <div class="header-actions">
+                <button class="action-btn" id="exportBtn" title="Export to HTML">
+                    <i class="fas fa-file-code"></i>
+                </button>
+                <button class="action-btn" id="exportPdfBtn" title="Export to PDF">
+                    <i class="fas fa-file-pdf"></i>
+                </button>
+                <button class="settings-btn" id="openSettings">
+                    <i class="fas fa-key"></i>
+                    <span>Settings</span>
+                </button>
+                <a href="USER_GUIDE.md" target="_blank" class="settings-btn" style="text-decoration: none;">
+                    <i class="fas fa-question-circle"></i>
+                    <span>Help</span>
+                </a>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Step 1: Topic Input -->
+            <div class="step-section" id="step1">
+                <div class="step-header">
+                    <span class="step-number">1</span>
+                    <h2>Define Ebook Topic</h2>
+                </div>
+                <div class="step-content">
+                    <textarea id="topicInput"
+                        placeholder="Enter your ebook topic here... (e.g., 'A comprehensive guide to Python programming for beginners')"
+                        rows="3"></textarea>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <label for="chapterCountInput" style="font-size: 14px; color: var(--text-muted);">Number of Chapters:</label>
+                        <input type="number" id="chapterCountInput" value="5" min="1" max="20" style="width: 70px; background: #ffffff; border: 1px solid var(--border); padding: 8px; border-radius: 8px; color: #000000; outline: none;">
+                    </div>
+                    <button class="generate-btn" id="generateStructure">
+                        <i class="fas fa-sitemap"></i>
+                        Generate Structure
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Cover Page -->
+            <div class="step-section" id="stepCover" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number"><i class="fas fa-book"></i></span>
+                    <h2>Cover Page</h2>
+                    <button class="toggle-btn" id="toggleCover">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="step-content" id="coverContent">
+                    <div class="cover-preview" id="coverPreview">
+                        <div class="cover-title" id="coverTitle">Your Ebook Title</div>
+                        <div class="cover-author">By: <span id="coverAuthor">Anonymous</span></div>
+                    </div>
+                    <button class="generate-btn" id="generateCover">
+                        <i class="fas fa-image"></i>
+                        Generate Cover Page
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Table of Contents -->
+            <div class="step-section" id="stepTOC" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number"><i class="fas fa-list"></i></span>
+                    <h2>Table of Contents</h2>
+                    <button class="toggle-btn" id="toggleTOC">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="step-content" id="tocContent">
+                    <div class="toc-list" id="tocList"></div>
+                    <button class="generate-btn" id="generateTOC">
+                        <i class="fas fa-list-ol"></i>
+                        Generate Table of Contents
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4: Foreword -->
+            <div class="step-section" id="stepForeword" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number"><i class="fas fa-quote-left"></i></span>
+                    <h2>Foreword</h2>
+                    <button class="toggle-btn" id="toggleForeword">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="step-content" id="forewordContentWrapper">
+                    <div class="foreword-content" id="forewordContent"></div>
+                    <button class="generate-btn" id="generateForeword">
+                        <i class="fas fa-pen-fancy"></i>
+                        Generate Foreword
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 5: Structure Display -->
+            <div class="step-section" id="step2" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number">2</span>
+                    <h2>Ebook Structure</h2>
+                    <button class="toggle-btn" id="toggleStructure">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="step-content" id="structureContent">
+                    <div class="structure-list" id="structureList"></div>
+                    <div class="structure-actions">
+                        <button class="generate-btn" id="generateAllContent">
+                            <i class="fas fa-bolt"></i>
+                            Generate All Content
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 6: Chapter Content -->
+            <div class="step-section" id="step3" style="display: none;">
+                <div class="step-header">
+                    <span class="step-number">3</span>
+                    <h2>Chapter Content</h2>
+                </div>
+                <div class="step-content">
+                    <div class="chapters-container" id="chaptersContainer"></div>
+                </div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div class="loading-indicator" id="loadingIndicator">
+                <div class="spinner"></div>
+                <span id="loadingText">AI is generating...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <h2>Settings</h2>
+
+            <label for="providerSelect"
+                style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Provider:</label>
+            <select id="providerSelect">
+                <option value="groq">Groq</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="local">Local (Ollama / LM Studio)</option>
+            </select>
+
+            <div id="groqSettings">
+                <p style="color: var(--text-muted); font-size: 14px; margin: 15px 0 10px 0;">Groq Cloud API Key</p>
+                <label for="groqApiKeyInput"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">API
+                    Key:</label>
+                <input type="password" id="groqApiKeyInput" placeholder="Enter your Groq API Key">
+
+                <label for="groqModelSelect"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin: 15px 0 5px 0;">Model:</label>
+                <select id="groqModelSelect">
+                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Smart/Stable)</option>
+                    <option value="llama-3.1-8b-instant">Llama 3.1 8B (Fastest)</option>
+                    <option value="mixtral-8x7b-32768">Mixtral 8x7B (Good at Code)</option>
+                    <option value="llama-3.2-90b-text-preview">Llama 3.2 90B (Latest)</option>
+                    <option value="custom">-- Custom Model --</option>
+                </select>
+                <input type="text" id="groqCustomModelInput" placeholder="Enter model name" style="display: none;">
+            </div>
+
+            <div id="geminiSettings" style="display: none;">
+                <p style="color: var(--text-muted); font-size: 14px; margin: 15px 0 10px 0;">Google Gemini API Key</p>
+                <label for="geminiApiKeyInput"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">API
+                    Key:</label>
+                <input type="password" id="geminiApiKeyInput" placeholder="Enter your Gemini API Key">
+                <button type="button" id="testGeminiKey"
+                    style="margin-top: 5px; padding: 5px 10px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer;">Test
+                    API Key</button>
+
+                <label for="geminiModelSelect"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin: 15px 0 5px 0;">Model:</label>
+                <select id="geminiModelSelect">
+                    <option value="gemini-pro">gemini-pro</option>
+                </select>
+                <p style="color: var(--text-muted); font-size: 11px; margin-top: 5px;">Get API key at
+                    https://aistudio.google.com/apikey</p>
+                <div id="geminiTestResult" style="margin-top: 10px; font-size: 12px;"></div>
+            </div>
+
+            <div id="deepseekSettings" style="display: none;">
+                <p style="color: var(--text-muted); font-size: 14px; margin: 15px 0 10px 0;">DeepSeek API Key</p>
+                <label for="deepseekApiKeyInput"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">API
+                    Key:</label>
+                <input type="password" id="deepseekApiKeyInput" placeholder="Enter your DeepSeek API Key">
+
+                <label for="deepseekModelSelect"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin: 15px 0 5px 0;">Model:</label>
+                <select id="deepseekModelSelect">
+                    <option value="deepseek-chat">DeepSeek-V3 (Chat)</option>
+                    <option value="deepseek-reasoner">DeepSeek-R1 (Reasoner)</option>
+                </select>
+                <p style="color: var(--text-muted); font-size: 11px; margin-top: 5px;">Get API key at
+                    https://platform.deepseek.com/</p>
+            </div>
+
+            <div id="openrouterSettings" style="display: none;">
+                <p style="color: var(--text-muted); font-size: 14px; margin: 15px 0 10px 0;">OpenRouter API Key</p>
+                <label for="openrouterApiKeyInput"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">API
+                    Key:</label>
+                <input type="password" id="openrouterApiKeyInput" placeholder="Enter your OpenRouter API Key">
+
+                <label for="openrouterModelSelect"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin: 15px 0 5px 0;">Model:</label>
+                <select id="openrouterModelSelect">
+                    <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (Fast/Cheap)</option>
+                    <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Pro)</option>
+                    <option value="deepseek/deepseek-chat">DeepSeek V3 (Smart)</option>
+                    <option value="meta-llama/llama-3.1-405b-instruct">Llama 3.1 405B (Powerful)</option>
+                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                </select>
+                <p style="color: var(--text-muted); font-size: 11px; margin-top: 5px;">Get API key at
+                    https://openrouter.ai/keys</p>
+            </div>
+
+            <div id="localSettings" style="display: none;">
+                <p style="color: var(--text-muted); font-size: 14px; margin: 15px 0 10px 0;">Local AI Configuration</p>
+                <label for="localBaseUrlInput"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Base URL:</label>
+                <input type="text" id="localBaseUrlInput" placeholder="http://localhost:11434/v1">
+                
+                <label for="localModelInput"
+                    style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Model Name:</label>
+                <input type="text" id="localModelInput" placeholder="llama3, mistral, etc.">
+                
+                <p style="color: var(--text-muted); font-size: 11px; margin-top: 5px;">For Ollama: http://localhost:11434/v1<br>For LM Studio: http://localhost:1234/v1</p>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn cancel-btn" id="closeSettings">Cancel</button>
+                <button class="modal-btn save-btn" id="saveSettings">Save</button>
+            </div>
+        </div>
+
+    </div>
+
+    </div>
+
+    <footer>
+        Copyright 2026, by Tech for Ummah
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
