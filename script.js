@@ -102,6 +102,28 @@ providerSelect.onchange = function() {
     showProviderSettings(currentProvider);
 };
 
+function updateStatusUI() {
+    var statusText = document.getElementById('statusText');
+    var providerName = currentProvider.charAt(0).toUpperCase() + currentProvider.slice(1);
+    var modelName = '';
+    
+    if (currentProvider === 'groq') {
+        modelName = groqModel === 'custom' ? groqCustomModel : groqModel;
+    } else if (currentProvider === 'gemini') {
+        modelName = geminiModel;
+    } else if (currentProvider === 'deepseek') {
+        modelName = deepseekModel;
+    } else if (currentProvider === 'openrouter') {
+        modelName = openrouterModel;
+    } else if (currentProvider === 'local') {
+        modelName = localModel;
+    }
+    
+    statusText.textContent = providerName + ': ' + (modelName || 'Not set');
+}
+
+updateStatusUI();
+
 function showProviderSettings(provider) {
     groqSettings.style.display = provider === 'groq' ? 'block' : 'none';
     geminiSettings.style.display = provider === 'gemini' ? 'block' : 'none';
@@ -194,6 +216,7 @@ saveSettings.onclick = function() {
         localStorage.setItem('openrouter_model', openrouterModel);
     }
     settingsModal.style.display = 'none';
+    updateStatusUI();
     Swal.fire({
         icon: 'success',
         title: 'Settings Saved!',
@@ -378,18 +401,18 @@ generateForewordBtn.onclick = async function() {
         return; 
     }
     loadingIndicator.classList.add('active');
-    loadingText.textContent = 'AI is writing foreword...';
+    loadingText.textContent = 'AI กำลังเขียนคำนำ...';
     generateForewordBtn.disabled = true;
     try {
         var chaptersList = ebookData.structure.map(function(ch, i) { return (i + 1) + '. ' + ch.title + ': ' + (ch.description || ''); }).join('\n');
-        var prompt = 'Write a comprehensive foreword for an ebook titled "' + ebookData.topic + '" by ' + ebookData.author + '.\nThe ebook has the following chapters:\n' + chaptersList + '\n\nThe foreword should:\n- Introduce the ebook\'s purpose and scope\n- Explain what readers will learn\n- Highlight the key benefits of reading this ebook\n- Be written in a welcoming, professional tone\n- Be 300-500 words\n- Use markdown formatting with a title "Foreword"';
+        var prompt = 'Write a comprehensive foreword in Thai language (ภาษาไทย) for an ebook titled "' + ebookData.topic + '" by ' + ebookData.author + '.\nThe ebook has the following chapters:\n' + chaptersList + '\n\nThe foreword should:\n- Introduce the ebook\'s purpose and scope in Thai\n- Explain what readers will learn in Thai\n- Highlight the key benefits of reading this ebook in Thai\n- Be written in a welcoming, professional tone (สุภาพและเป็นทางการ)\n- Be 300-500 words\n- Use markdown formatting with a title "คำนำ"';
         var content = await callAI(prompt);
         ebookData.foreword = content;
         forewordContent.innerHTML = marked.parse(content);
         Swal.fire({
             icon: 'success',
-            title: 'Foreword Generated!',
-            text: 'Your foreword has been generated successfully.',
+            title: 'สร้างคำนำสำเร็จ!',
+            text: 'คำนำของคุณถูกสร้างเรียบร้อยแล้ว',
             confirmButtonColor: '#059669'
         });
     } catch (error) {
@@ -779,7 +802,38 @@ exportBtn.onclick = function() {
         String(now.getHours()).padStart(2, '0') +
         String(now.getMinutes()).padStart(2, '0') +
         String(now.getSeconds()).padStart(2, '0');
-    var html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>' + ebookData.topic + '</title>\n<style>\nbody { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.8; }\nh1 { color: #059669; }\nh2 { color: #047857; margin-top: 30px; }\nh3 { color: #065f46; }\npre { background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto; }\ncode { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; }\n.cover { text-align: center; padding: 60px 20px; background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: white; border-radius: 12px; margin-bottom: 40px; }\n.cover h1 { color: white; font-size: 36px; }\n.cover p { font-size: 18px; margin-top: 20px; }\n.toc { background: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; }\n.toc-item { padding: 8px 0; border-bottom: 1px solid #a7f3d0; }\n.foreword { background: #fffbeb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; }\n</style>\n</head>\n<body>\n<div class="cover">\n<h1>' + ebookData.topic + '</h1>\n<p>By: ' + ebookData.author + '</p>';
+    var html = `<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>${ebookData.topic}</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+body { font-family: 'Sarabun', sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.8; color: #333; }
+h1 { color: #059669; line-height: 1.2; }
+h2 { color: #047857; margin-top: 40px; border-bottom: 2px solid #ecfdf5; padding-bottom: 10px; }
+h3 { color: #065f46; margin-top: 25px; }
+p { margin-bottom: 1.5em; text-align: justify; }
+pre { background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #ddd; }
+code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+.cover { text-align: center; padding: 80px 20px; background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: white; border-radius: 12px; margin-bottom: 40px; }
+.cover h1 { color: white; font-size: 38px; margin-bottom: 20px; }
+.cover p { font-size: 18px; margin-top: 10px; opacity: 0.9; text-align: center; }
+.toc { background: #ecfdf5; padding: 30px; border-radius: 12px; margin: 30px 0; border: 1px solid #a7f3d0; }
+.toc h2 { border-bottom: 2px solid #059669; color: #059669; margin-top: 0; }
+.toc-item { padding: 12px 0; border-bottom: 1px solid #a7f3d0; }
+.toc-item:last-child { border-bottom: none; }
+.foreword { background: #fffbeb; padding: 30px; border-radius: 12px; margin: 30px 0; border-left: 6px solid #f59e0b; }
+@media print {
+    body { width: 100%; margin: 0; padding: 0; }
+    .cover { border-radius: 0; }
+}
+</style>
+</head>
+<body>
+<div class="cover">
+<h1>${ebookData.topic}</h1>
+<p>ผู้เขียน: ${ebookData.author}</p>`;
     if (ebookData.cover) {
         html += '<p style="font-size: 16px; margin-top: 10px; opacity: 0.9;">' + ebookData.cover + '</p>';
     }
@@ -839,54 +893,63 @@ exportPdfBtn.onclick = async function() {
         }
     });
 
-    // Create a temporary container for PDF content
-    var element = document.createElement('div');
-    element.style.padding = '40px';
-    element.style.color = '#333';
-    element.style.background = '#fff';
-    element.style.fontFamily = "'Outfit', 'Tahoma', 'Arial', sans-serif";
-
-    var html = `
-        <div style="text-align: center; padding: 100px 20px; background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: white; border-radius: 12px; margin-bottom: 50px;">
-            <h1 style="font-size: 42px; margin-bottom: 20px; color: white;">${ebookData.topic}</h1>
-            <p style="font-size: 20px; opacity: 0.9;">By: ${ebookData.author}</p>
-            ${ebookData.cover ? `<p style="font-size: 18px; margin-top: 20px; opacity: 0.8;">${ebookData.cover}</p>` : ''}
+    // Prepare the full HTML content as a string (similar to HTML export but formatted for PDF)
+    var pdfHtml = `
+    <!DOCTYPE html>
+    <html lang="th">
+    <head>
+        <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
+        <style>
+            body { font-family: 'Sarabun', sans-serif; padding: 20px; color: #333; line-height: 1.6; }
+            .cover { text-align: center; padding: 100px 20px; background-color: #065f46; color: white; border-radius: 15px; margin-bottom: 50px; }
+            .cover h1 { font-size: 38pt; margin-bottom: 20px; }
+            .cover p { font-size: 18pt; opacity: 0.9; }
+            .section { page-break-before: always; padding: 20px 0; }
+            .toc { background-color: #f0fdf4; padding: 30px; border-radius: 10px; border: 1px solid #dcfce7; }
+            .toc h2 { color: #065f46; border-bottom: 2px solid #065f46; padding-bottom: 10px; }
+            .toc-item { padding: 10px 0; border-bottom: 1px solid #dcfce7; }
+            .foreword { background-color: #fffbeb; padding: 30px; border-radius: 10px; border-left: 6px solid #f59e0b; }
+            h2 { color: #047857; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; }
+            p { margin-bottom: 1.2em; text-align: justify; }
+            pre { background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 10pt; }
+        </style>
+    </head>
+    <body>
+        <div class="cover">
+            <h1>${ebookData.topic}</h1>
+            <p>ผู้เขียน: ${ebookData.author}</p>
+            ${ebookData.cover ? `<p style="font-size: 14pt; margin-top: 20px;">${ebookData.cover}</p>` : ''}
         </div>
     `;
 
     if (ebookData.foreword) {
-        html += `
-            <div style="page-break-before: always; padding: 20px; margin-bottom: 30px;">
-                <div style="background: #fffbeb; padding: 30px; border-radius: 8px; border-left: 5px solid #f59e0b;">
-                    ${marked.parse(ebookData.foreword)}
-                </div>
-            </div>
-        `;
+        pdfHtml += `<div class="section"><div class="foreword">${marked.parse(ebookData.foreword)}</div></div>`;
     }
 
     if (ebookData.toc) {
-        html += `
-            <div style="page-break-before: always; padding: 20px;">
-                <h2 style="color: #047857; border-bottom: 2px solid #047857; padding-bottom: 10px;">Table of Contents</h2>
+        pdfHtml += `
+            <div class="section toc">
+                <h2>สารบัญ (Table of Contents)</h2>
                 <div style="margin-top: 20px;">
         `;
         ebookData.toc.forEach(function(item) {
-            html += `
-                <div style="padding: 10px 0; border-bottom: 1px solid #eee;">
+            pdfHtml += `
+                <div class="toc-item">
                     <strong>Chapter ${item.chapter}: ${item.title}</strong>
-                    ${item.subsections ? `<div style="font-size: 14px; color: #666; margin-top: 5px;">${item.subsections.map(sub => '└ ' + sub).join('<br>')}</div>` : ''}
+                    ${item.subsections ? `<div style="font-size: 12pt; color: #666; margin-top: 5px;">${item.subsections.map(sub => '└ ' + sub).join('<br>')}</div>` : ''}
                 </div>
             `;
         });
-        html += `</div></div>`;
+        pdfHtml += `</div></div>`;
     }
 
     ebookData.structure.forEach(function(chapter, index) {
         if (ebookData.chapters[index]) {
-            html += `
-                <div style="page-break-before: always; padding: 20px;">
-                    <h2 style="color: #047857; border-bottom: 1px solid #eee; padding-bottom: 10px;">Chapter ${index + 1}: ${chapter.title}</h2>
-                    <div style="line-height: 1.8; margin-top: 20px; text-align: justify;">
+            pdfHtml += `
+                <div class="section">
+                    <h2>บทที่ ${index + 1}: ${chapter.title}</h2>
+                    <div style="margin-top: 20px;">
                         ${marked.parse(ebookData.chapters[index])}
                     </div>
                 </div>
@@ -894,11 +957,11 @@ exportPdfBtn.onclick = async function() {
         }
     });
 
-    element.innerHTML = html;
+    pdfHtml += `</body></html>`;
 
     var opt = {
-        margin: [10, 10],
-        filename: `ebook_\${ebookData.topic.replace(/\\s+/g, '_')}.pdf`,
+        margin: 15,
+        filename: `ebook_${ebookData.topic.replace(/\s+/g, '_')}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, letterRendering: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -906,7 +969,9 @@ exportPdfBtn.onclick = async function() {
     };
 
     try {
-        await html2pdf().set(opt).from(element).save();
+        // Pass the HTML string directly to html2pdf
+        await html2pdf().from(pdfHtml).set(opt).save();
+        
         Swal.close();
         Swal.fire({
             icon: 'success',
@@ -915,6 +980,7 @@ exportPdfBtn.onclick = async function() {
             confirmButtonColor: '#059669'
         });
     } catch (error) {
+        console.error('PDF Export Error:', error);
         Swal.close();
         Swal.fire({
             icon: 'error',
