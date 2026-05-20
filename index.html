@@ -12,13 +12,31 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
+
+    <!-- Login Overlay -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <div class="login-icon"><i class="fas fa-lock"></i></div>
+            <h2>เข้าสู่ระบบ</h2>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">กรุณาใส่ชื่อผู้ใช้และรหัสผ่าน</p>
+            <input type="text" id="loginUsername" placeholder="ชื่อผู้ใช้" autocomplete="off" style="margin-bottom: 10px;">
+            <input type="password" id="loginPassword" placeholder="รหัสผ่าน" autocomplete="off">
+            <div class="login-error" id="loginError"></div>
+            <button class="login-btn" id="loginBtn">
+                <i class="fas fa-sign-in-alt"></i>
+                <span>เข้าสู่ระบบ</span>
+                <span class="login-loading" id="loginLoading"><i class="fas fa-spinner fa-spin"></i></span>
+            </button>
+        </div>
+    </div>
 
     <div class="app-container">
         <header>
@@ -43,14 +61,17 @@
                 <button class="action-btn" id="exportPdfBtn" title="Export to PDF">
                     <i class="fas fa-file-pdf"></i>
                 </button>
+                <button class="settings-btn" id="themeToggle" title="Toggle Theme">
+                    <i class="fas fa-sun" id="themeIcon"></i>
+                </button>
                 <button class="settings-btn" id="openSettings">
                     <i class="fas fa-key"></i>
                     <span>Settings</span>
                 </button>
-                <a href="USER_GUIDE.md" target="_blank" class="settings-btn" style="text-decoration: none;">
-                    <i class="fas fa-question-circle"></i>
-                    <span>Help</span>
-                </a>
+                <button class="settings-btn" id="logoutBtn" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
             </div>
         </header>
 
@@ -67,7 +88,15 @@
                         rows="3"></textarea>
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                         <label for="chapterCountInput" style="font-size: 14px; color: var(--text-muted);">Number of Chapters:</label>
-                        <input type="number" id="chapterCountInput" value="5" min="1" max="20" style="width: 70px; background: #ffffff; border: 1px solid var(--border); padding: 8px; border-radius: 8px; color: #000000; outline: none;">
+                        <input type="number" id="chapterCountInput" value="5" min="1" max="20" style="width: 70px; padding: 8px; border-radius: 8px; outline: none;">
+                    </div>
+                    <div class="prompt-editor">
+                        <button class="prompt-toggle" data-target="structurePrompt">
+                            <i class="fas fa-pencil-alt"></i> Edit Prompt
+                        </button>
+                        <div class="prompt-textarea-wrapper" id="structurePrompt" style="display: none;">
+                            <textarea class="prompt-textarea" data-section="structure" rows="4" placeholder="Custom prompt template. Use {topic} and {chapterCount} as variables. Leave empty to use default."></textarea>
+                        </div>
                     </div>
                     <button class="generate-btn" id="generateStructure">
                         <i class="fas fa-sitemap"></i>
@@ -90,6 +119,14 @@
                         <div class="cover-title" id="coverTitle">Your Ebook Title</div>
                         <div class="cover-author">By: <span id="coverAuthor">Anonymous</span></div>
                     </div>
+                    <div class="prompt-editor">
+                        <button class="prompt-toggle" data-target="coverPrompt">
+                            <i class="fas fa-pencil-alt"></i> Edit Prompt
+                        </button>
+                        <div class="prompt-textarea-wrapper" id="coverPrompt" style="display: none;">
+                            <textarea class="prompt-textarea" data-section="cover" rows="4" placeholder="Custom prompt template. Use {topic} and {author} as variables. Leave empty to use default."></textarea>
+                        </div>
+                    </div>
                     <button class="generate-btn" id="generateCover">
                         <i class="fas fa-image"></i>
                         Generate Cover Page
@@ -108,6 +145,14 @@
                 </div>
                 <div class="step-content" id="tocContent">
                     <div class="toc-list" id="tocList"></div>
+                    <div class="prompt-editor">
+                        <button class="prompt-toggle" data-target="tocPrompt">
+                            <i class="fas fa-pencil-alt"></i> Edit Prompt
+                        </button>
+                        <div class="prompt-textarea-wrapper" id="tocPrompt" style="display: none;">
+                            <textarea class="prompt-textarea" data-section="toc" rows="4" placeholder="Custom prompt template. Use {topic} and {chaptersJson} as variables. Leave empty to use default."></textarea>
+                        </div>
+                    </div>
                     <button class="generate-btn" id="generateTOC">
                         <i class="fas fa-list-ol"></i>
                         Generate Table of Contents
@@ -126,6 +171,14 @@
                 </div>
                 <div class="step-content" id="forewordContentWrapper">
                     <div class="foreword-content" id="forewordContent"></div>
+                    <div class="prompt-editor">
+                        <button class="prompt-toggle" data-target="forewordPrompt">
+                            <i class="fas fa-pencil-alt"></i> Edit Prompt
+                        </button>
+                        <div class="prompt-textarea-wrapper" id="forewordPrompt" style="display: none;">
+                            <textarea class="prompt-textarea" data-section="foreword" rows="4" placeholder="Custom prompt template. Use {topic}, {author}, and {chaptersList} as variables. Leave empty to use default."></textarea>
+                        </div>
+                    </div>
                     <button class="generate-btn" id="generateForeword">
                         <i class="fas fa-pen-fancy"></i>
                         สร้างคำนำ
@@ -144,6 +197,14 @@
                 </div>
                 <div class="step-content" id="structureContent">
                     <div class="structure-list" id="structureList"></div>
+                    <div class="prompt-editor">
+                        <button class="prompt-toggle" data-target="chapterPrompt">
+                            <i class="fas fa-pencil-alt"></i> Edit Chapter Prompt
+                        </button>
+                        <div class="prompt-textarea-wrapper" id="chapterPrompt" style="display: none;">
+                            <textarea class="prompt-textarea" data-section="chapter" rows="4" placeholder="Custom prompt for generating chapter content. Use {topic}, {chapterTitle}, {chapterDescription} as variables. Leave empty to use default."></textarea>
+                        </div>
+                    </div>
                     <div class="structure-actions">
                         <button class="generate-btn" id="generateAllContent">
                             <i class="fas fa-bolt"></i>
@@ -294,3 +355,4 @@
 </body>
 
 </html>
+

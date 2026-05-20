@@ -1,3 +1,5 @@
+var GAS_URL = localStorage.getItem('gas_url') || 'https://script.google.com/macros/s/AKfycbzuPkmQa2z7yWo2qkP5W9xaQL5ySEYD-h9s1oMNRcYSqsfbWKo4f2wlhO-Lxi1PtNrs/exec';
+
 var topicInput = document.getElementById('topicInput');
 var authorInput = document.getElementById('authorInput');
 var generateStructureBtn = document.getElementById('generateStructure');
@@ -30,6 +32,8 @@ var chapterCountInput = document.getElementById('chapterCountInput');
 
 var openSettings = document.getElementById('openSettings');
 var closeSettings = document.getElementById('closeSettings');
+var themeToggle = document.getElementById('themeToggle');
+var themeIcon = document.getElementById('themeIcon');
 var settingsModal = document.getElementById('settingsModal');
 var providerSelect = document.getElementById('providerSelect');
 var groqSettings = document.getElementById('groqSettings');
@@ -77,6 +81,40 @@ var ebookData = {
     toc: '',
     foreword: ''
 };
+
+// Custom prompt storage (in-memory + localStorage)
+var customPrompts = JSON.parse(localStorage.getItem('custom_prompts') || '{}');
+
+var promptDefaults = {
+    structure: 'Create a detailed ebook structure for the topic: "{topic}".\nReturn a JSON array of chapter objects with "title" and "description" fields.\nThe ebook should have exactly {chapterCount} chapters. Only return the JSON array, no other text.',
+    cover: 'Create a compelling cover page description for an ebook titled "{topic}" by {author}.\nWrite a brief, engaging subtitle or tagline (1-2 sentences) that captures the essence of the book.\nReturn only the subtitle/tagline, no other text.',
+    toc: 'Create a detailed Table of Contents for an ebook titled "{topic}".\nChapters: {chaptersJson}\nFor each chapter, create 2-4 subsection titles that would logically appear in that chapter.\nReturn the result as a JSON array with objects containing "chapter", "title", and "subsections" (array of subsection titles).\nOnly return the JSON, no other text.',
+    foreword: 'Write a comprehensive foreword in Thai language (ภาษาไทย) for an ebook titled "{topic}" by {author}.\nThe ebook has the following chapters:\n{chaptersList}\n\nThe foreword should:\n- Introduce the ebook\'s purpose and scope in Thai\n- Explain what readers will learn in Thai\n- Highlight the key benefits of reading this ebook in Thai\n- Be written in a welcoming, professional tone (สุภาพและเป็นทางการ)\n- Be 300-500 words\n- Use markdown formatting with a title "คำนำ"',
+    chapter: 'Write a comprehensive chapter for an ebook about "{topic}".\nChapter Title: {chapterTitle}\nChapter Description: {chapterDescription}\n\nWrite detailed content with proper headings (use markdown h2, h3), paragraphs, and examples where appropriate.\nThe content should be 800-1500 words. Use markdown formatting.'
+
+};
+
+function getPrompt(section, vars) {
+    var template = customPrompts[section] || promptDefaults[section];
+    if (!template) return '';
+    var result = template;
+    for (var key in vars) {
+        if (vars.hasOwnProperty(key)) {
+            var re = new RegExp('\\{' + key + '\\}', 'g');
+            result = result.replace(re, vars[key]);
+        }
+    }
+    return result;
+}
+
+function saveCustomPrompt(section, text) {
+    if (text && text.trim()) {
+        customPrompts[section] = text.trim();
+    } else {
+        delete customPrompts[section];
+    }
+    localStorage.setItem('custom_prompts', JSON.stringify(customPrompts));
+}
 
 providerSelect.value = currentProvider;
 showProviderSettings(currentProvider);
@@ -221,7 +259,7 @@ saveSettings.onclick = function() {
         icon: 'success',
         title: 'Settings Saved!',
         text: 'Your API settings have been saved successfully.',
-        confirmButtonColor: '#059669'
+        confirmButtonColor: '#2563eb'
     });
 };
 
@@ -249,6 +287,60 @@ toggleForeword.onclick = function() {
     toggleForeword.classList.toggle('collapsed', !isCollapsed);
 };
 
+// Theme toggle
+var currentTheme = localStorage.getItem('theme') || 'dark';
+
+function applyTheme(theme) {
+    if (theme === 'light') {
+        document.body.classList.add('light-theme');
+        themeIcon.className = 'fas fa-moon';
+    } else {
+        document.body.classList.remove('light-theme');
+        themeIcon.className = 'fas fa-sun';
+    }
+    localStorage.setItem('theme', theme);
+    currentTheme = theme;
+}
+
+themeToggle.onclick = function() {
+    applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+};
+
+applyTheme(currentTheme);
+
+// Prompt editor toggles and auto-populate
+document.querySelectorAll('.prompt-toggle').forEach(function(btn) {
+    btn.onclick = function() {
+        var targetId = btn.dataset.target;
+        var wrapper = document.getElementById(targetId);
+        var isHidden = wrapper.style.display === 'none';
+        wrapper.style.display = isHidden ? 'block' : 'none';
+        btn.classList.toggle('active', isHidden);
+
+        // Auto-populate with default template (or saved custom prompt)
+        if (isHidden) {
+            var textarea = wrapper.querySelector('.prompt-textarea');
+            var section = textarea.dataset.section;
+            // Always show the prompt to edit: custom prompt if saved, else default
+            var saved = customPrompts[section];
+            textarea.value = saved || promptDefaults[section] || '';
+        }
+    };
+});
+
+// Save prompt on input (debounced)
+document.querySelectorAll('.prompt-textarea').forEach(function(ta) {
+    var debounceTimer;
+    ta.oninput = function() {
+        clearTimeout(debounceTimer);
+        var self = this;
+        debounceTimer = setTimeout(function() {
+            var val = self.value.trim();
+            saveCustomPrompt(self.dataset.section, val || '');
+        }, 500);
+    };
+});
+
 authorInput.oninput = function() {
     ebookData.author = authorInput.value.trim() || 'Anonymous';
     coverAuthor.textContent = ebookData.author;
@@ -260,7 +352,7 @@ generateCoverBtn.onclick = async function() {
             icon: 'warning',
             title: 'Topic Missing',
             text: 'Please define ebook topic first',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
         return;
     }
@@ -276,7 +368,7 @@ generateCoverBtn.onclick = async function() {
             icon: 'info',
             title: 'API Key Required',
             text: 'Please enter your API key in the settings.',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         }).then(() => {
             settingsModal.style.display = 'flex';
         });
@@ -286,7 +378,10 @@ generateCoverBtn.onclick = async function() {
     loadingText.textContent = 'AI is generating cover page...';
     generateCoverBtn.disabled = true;
     try {
-        var prompt = 'Create a compelling cover page description for an ebook titled "' + ebookData.topic + '" by ' + ebookData.author + '.\nWrite a brief, engaging subtitle or tagline (1-2 sentences) that captures the essence of the book.\nReturn only the subtitle/tagline, no other text.';
+        var prompt = getPrompt('cover', {
+            topic: ebookData.topic,
+            author: ebookData.author
+        });
         var subtitle = await callAI(prompt);
         ebookData.cover = subtitle;
         coverTitle.textContent = ebookData.topic;
@@ -295,7 +390,7 @@ generateCoverBtn.onclick = async function() {
             icon: 'success',
             title: 'Cover Page Updated!',
             text: 'Your cover page has been generated successfully.',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
     } catch (error) {
         handleAIError(error, 'cover');
@@ -311,7 +406,7 @@ generateTOCBtn.onclick = async function() {
             icon: 'warning',
             title: 'Structure Missing',
             text: 'Please generate ebook structure first',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
         return;
     }
@@ -328,7 +423,7 @@ generateTOCBtn.onclick = async function() {
             icon: 'info',
             title: 'API Key Required',
             text: 'Please enter your API key in the settings.',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         }).then(() => {
             settingsModal.style.display = 'flex';
         });
@@ -339,7 +434,10 @@ generateTOCBtn.onclick = async function() {
     generateTOCBtn.disabled = true;
     try {
         var chapters = ebookData.structure.map(function(ch, i) { return { number: i + 1, title: ch.title }; });
-        var prompt = 'Create a detailed Table of Contents for an ebook titled "' + ebookData.topic + '".\nChapters: ' + JSON.stringify(chapters) + '\nFor each chapter, create 2-4 subsection titles that would logically appear in that chapter.\nReturn the result as a JSON array with objects containing "chapter", "title", and "subsections" (array of subsection titles).\nOnly return the JSON, no other text.';
+        var prompt = getPrompt('toc', {
+            topic: ebookData.topic,
+            chaptersJson: JSON.stringify(chapters)
+        });
         var tocData = await callAI(prompt);
         var parsed = parseAIJSON(tocData);
         ebookData.toc = parsed;
@@ -348,7 +446,7 @@ generateTOCBtn.onclick = async function() {
             icon: 'success',
             title: 'Table of Contents Generated!',
             text: 'Your TOC has been generated successfully.',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
     } catch (error) {
         handleAIError(error, 'TOC');
@@ -378,7 +476,7 @@ generateForewordBtn.onclick = async function() {
             icon: 'warning',
             title: 'Information Missing',
             text: 'Please define topic and generate structure first',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
         return;
     }
@@ -394,7 +492,7 @@ generateForewordBtn.onclick = async function() {
             icon: 'info',
             title: 'API Key Required',
             text: 'Please enter your API key in the settings.',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         }).then(() => {
             settingsModal.style.display = 'flex';
         });
@@ -405,7 +503,11 @@ generateForewordBtn.onclick = async function() {
     generateForewordBtn.disabled = true;
     try {
         var chaptersList = ebookData.structure.map(function(ch, i) { return (i + 1) + '. ' + ch.title + ': ' + (ch.description || ''); }).join('\n');
-        var prompt = 'Write a comprehensive foreword in Thai language (ภาษาไทย) for an ebook titled "' + ebookData.topic + '" by ' + ebookData.author + '.\nThe ebook has the following chapters:\n' + chaptersList + '\n\nThe foreword should:\n- Introduce the ebook\'s purpose and scope in Thai\n- Explain what readers will learn in Thai\n- Highlight the key benefits of reading this ebook in Thai\n- Be written in a welcoming, professional tone (สุภาพและเป็นทางการ)\n- Be 300-500 words\n- Use markdown formatting with a title "คำนำ"';
+        var prompt = getPrompt('foreword', {
+            topic: ebookData.topic,
+            author: ebookData.author,
+            chaptersList: chaptersList
+        });
         var content = await callAI(prompt);
         ebookData.foreword = content;
         forewordContent.innerHTML = marked.parse(content);
@@ -413,7 +515,7 @@ generateForewordBtn.onclick = async function() {
             icon: 'success',
             title: 'สร้างคำนำสำเร็จ!',
             text: 'คำนำของคุณถูกสร้างเรียบร้อยแล้ว',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
     } catch (error) {
         handleAIError(error, 'foreword');
@@ -430,7 +532,7 @@ generateStructureBtn.onclick = async function() {
             icon: 'warning',
             title: 'Topic Required',
             text: 'Please enter a topic',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
         return;
     }
@@ -446,7 +548,7 @@ generateStructureBtn.onclick = async function() {
             icon: 'info',
             title: 'API Key Required',
             text: 'Please enter your API key in the settings.',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         }).then(() => {
             settingsModal.style.display = 'flex';
         });
@@ -461,7 +563,10 @@ generateStructureBtn.onclick = async function() {
     generateStructureBtn.disabled = true;
     try {
         var chapterCount = chapterCountInput.value || 5;
-        var prompt = 'Create a detailed ebook structure for the topic: "' + topic + '".\nReturn a JSON array of chapter objects with "title" and "description" fields.\nThe ebook should have exactly ' + chapterCount + ' chapters. Only return the JSON array, no other text.';
+        var prompt = getPrompt('structure', {
+            topic: topic,
+            chapterCount: chapterCount
+        });
         var structure = await callAI(prompt);
         var parsed = parseAIJSON(structure);
         ebookData.structure = parsed;
@@ -514,7 +619,7 @@ async function generateChapterContent(index) {
             icon: 'info',
             title: 'API Key Required',
             text: 'Please enter your API key in the settings.',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         }).then(() => {
             settingsModal.style.display = 'flex';
         });
@@ -528,7 +633,11 @@ async function generateChapterContent(index) {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating';
     }
     try {
-        var prompt = 'Write a comprehensive chapter for an ebook about "' + ebookData.topic + '".\nChapter Title: ' + chapter.title + '\nChapter Description: ' + (chapter.description || 'N/A') + '\n\nWrite detailed content with proper headings (use markdown h2, h3), paragraphs, and examples where appropriate.\nThe content should be 800-1500 words. Use markdown formatting.';
+        var prompt = getPrompt('chapter', {
+            topic: ebookData.topic,
+            chapterTitle: chapter.title,
+            chapterDescription: chapter.description || 'N/A'
+        });
         var content = await callAI(prompt);
         ebookData.chapters[index] = content;
         renderChapterContent(index, chapter.title, content);
@@ -582,7 +691,7 @@ function handleAIError(error, context) {
         icon: 'error',
         title: 'AI Generation Error',
         text: `Error generating ${context}: ${msg}`,
-        confirmButtonColor: '#059669'
+        confirmButtonColor: '#2563eb'
     });
 }
 
@@ -791,7 +900,7 @@ exportBtn.onclick = function() {
             icon: 'warning',
             title: 'Content Missing',
             text: 'Please generate ebook content first',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
         return;
     }
@@ -809,21 +918,27 @@ exportBtn.onclick = function() {
 <title>${ebookData.topic}</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
-body { font-family: 'Sarabun', sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.8; color: #333; }
-h1 { color: #059669; line-height: 1.2; }
-h2 { color: #047857; margin-top: 40px; border-bottom: 2px solid #ecfdf5; padding-bottom: 10px; }
-h3 { color: #065f46; margin-top: 25px; }
-p { margin-bottom: 1.5em; text-align: justify; }
-pre { background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #ddd; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Sarabun', Tahoma, 'Noto Sans Thai', sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 2.0; color: #333; }
+h1 { color: #2563eb; line-height: 1.3; margin: 25px 0 15px 0; }
+h2 { color: #1d4ed8; margin-top: 35px; margin-bottom: 12px; border-bottom: 2px solid #dbeafe; padding-bottom: 10px; line-height: 1.4; }
+h3 { color: #1e40af; margin-top: 25px; margin-bottom: 10px; line-height: 1.5; }
+h4 { color: #333; margin-top: 20px; margin-bottom: 8px; line-height: 1.5; }
+p { margin-bottom: 1em; line-height: 2.0; text-align: justify; }
+pre { background: #f5f5f5; padding: 15px; border-radius: 8px; overflow-x: auto; border: 1px solid #ddd; line-height: 1.6; margin: 15px 0; }
 code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
-.cover { text-align: center; padding: 80px 20px; background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: white; border-radius: 12px; margin-bottom: 40px; }
+.cover { text-align: center; padding: 80px 20px; background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%); color: white; border-radius: 12px; margin-bottom: 40px; }
 .cover h1 { color: white; font-size: 38px; margin-bottom: 20px; }
-.cover p { font-size: 18px; margin-top: 10px; opacity: 0.9; text-align: center; }
-.toc { background: #ecfdf5; padding: 30px; border-radius: 12px; margin: 30px 0; border: 1px solid #a7f3d0; }
-.toc h2 { border-bottom: 2px solid #059669; color: #059669; margin-top: 0; }
-.toc-item { padding: 12px 0; border-bottom: 1px solid #a7f3d0; }
+.cover p { font-size: 18px; margin-top: 10px; opacity: 0.9; text-align: center; line-height: 1.6; }
+.toc { background: #eff6ff; padding: 30px; border-radius: 12px; margin: 30px 0; border: 1px solid #bfdbfe; }
+.toc h2 { border-bottom: 2px solid #2563eb; color: #2563eb; margin-top: 0; }
+.toc-item { padding: 12px 0; border-bottom: 1px solid #bfdbfe; line-height: 1.8; }
 .toc-item:last-child { border-bottom: none; }
-.foreword { background: #fffbeb; padding: 30px; border-radius: 12px; margin: 30px 0; border-left: 6px solid #f59e0b; }
+.foreword { background: #fffbeb; padding: 30px; border-radius: 12px; margin: 30px 0; border-left: 6px solid #f59e0b; line-height: 2.0; }
+ul, ol { margin: 10px 0 10px 25px; line-height: 2.0; }
+li { margin-bottom: 5px; }
+blockquote { margin: 15px 0; padding: 10px 20px; border-left: 4px solid #2563eb; background: #f8fafc; }
+hr { margin: 25px 0; border: none; border-top: 1px solid #e2e8f0; }
 @media print {
     body { width: 100%; margin: 0; padding: 0; }
     .cover { border-radius: 0; }
@@ -869,9 +984,104 @@ code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-family: m
         icon: 'success',
         title: 'Export Complete!',
         text: 'Your ebook has been exported successfully.',
-        confirmButtonColor: '#059669'
+        confirmButtonColor: '#2563eb'
     });
 };
+
+// ========== LOGIN (Google Sheet Auth) ==========
+var loginOverlay = document.getElementById('loginOverlay');
+var loginUsername = document.getElementById('loginUsername');
+var loginPassword = document.getElementById('loginPassword');
+var loginBtn = document.getElementById('loginBtn');
+var loginError = document.getElementById('loginError');
+var loginLoading = document.getElementById('loginLoading');
+var logoutBtn = document.getElementById('logoutBtn');
+
+loginBtn.onclick = function() { doLogin(); };
+loginUsername.onkeydown = function(e) { if (e.key === 'Enter') loginPassword.focus(); };
+loginPassword.onkeydown = function(e) { if (e.key === 'Enter') doLogin(); };
+
+function doLogin() {
+    var username = loginUsername.value.trim();
+    var password = loginPassword.value.trim();
+    if (!username || !password) {
+        loginError.textContent = 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน';
+        loginError.style.display = 'block';
+        return;
+    }
+    loginError.style.display = 'none';
+    loginLoading.style.display = 'inline-block';
+    loginBtn.disabled = true;
+
+    fetch(GAS_URL + '?username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password))
+    .then(function(response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.text();
+    })
+    .then(function(text) {
+        var data;
+        try { data = JSON.parse(text); } catch(e) { data = { success: true }; }
+        loginLoading.style.display = 'none';
+        loginBtn.disabled = false;
+        if (data.success === false) {
+            loginError.textContent = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง';
+            loginError.style.display = 'block';
+            return;
+        }
+        loginOverlay.classList.add('logged-in');
+        localStorage.setItem('logged_in', 'true');
+    })
+    .catch(function(err) {
+        loginLoading.style.display = 'none';
+        loginBtn.disabled = false;
+        loginError.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อ: ' + err.message;
+        loginError.style.display = 'block';
+    });
+}
+
+// Logout
+logoutBtn.onclick = function() {
+    localStorage.removeItem('logged_in');
+    loginOverlay.classList.remove('logged-in');
+    loginUsername.value = '';
+    loginPassword.value = '';
+    loginError.style.display = 'none';
+};
+
+// Auto-login check on load
+if (localStorage.getItem('logged_in') === 'true') {
+    loginOverlay.classList.add('logged-in');
+}
+
+// Settings: add GAS URL input
+var gasUrlInput = document.createElement('input');
+gasUrlInput.type = 'text';
+gasUrlInput.id = 'gasUrlInput';
+gasUrlInput.placeholder = 'GAS Login URL';
+gasUrlInput.value = GAS_URL;
+
+var gasLabel = document.createElement('label');
+gasLabel.htmlFor = 'gasUrlInput';
+gasLabel.style.display = 'block';
+gasLabel.style.fontSize = '12px';
+gasLabel.style.color = 'var(--text-muted)';
+gasLabel.style.marginBottom = '5px';
+gasLabel.style.marginTop = '15px';
+gasLabel.textContent = 'Google Apps Script URL (Login):';
+
+var saveSettingsOrig = saveSettings.onclick;
+saveSettings.onclick = function() {
+    var newUrl = gasUrlInput.value.trim();
+    if (newUrl) {
+        localStorage.setItem('gas_url', newUrl);
+        GAS_URL = newUrl;
+    }
+    saveSettingsOrig.call(this);
+};
+
+var deepseekLabel = document.querySelector('#deepseekSettings p');
+deepseekLabel.parentNode.insertBefore(gasLabel, deepseekLabel.parentNode.querySelector('#deepseekSettings p'));
+gasLabel.parentNode.insertBefore(gasUrlInput, gasLabel.nextSibling);
 
 exportPdfBtn.onclick = async function() {
     if (!ebookData.topic || Object.keys(ebookData.chapters).length === 0) {
@@ -879,7 +1089,7 @@ exportPdfBtn.onclick = async function() {
             icon: 'warning',
             title: 'Content Missing',
             text: 'Please generate ebook content first',
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
         return;
     }
@@ -899,20 +1109,33 @@ exportPdfBtn.onclick = async function() {
     <html lang="th">
     <head>
         <meta charset="UTF-8">
-        <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap" rel="stylesheet">
         <style>
-            body { font-family: 'Sarabun', sans-serif; padding: 20px; color: #333; line-height: 1.6; }
-            .cover { text-align: center; padding: 100px 20px; background-color: #065f46; color: white; border-radius: 15px; margin-bottom: 50px; }
-            .cover h1 { font-size: 38pt; margin-bottom: 20px; }
-            .cover p { font-size: 18pt; opacity: 0.9; }
-            .section { page-break-before: always; padding: 20px 0; }
-            .toc { background-color: #f0fdf4; padding: 30px; border-radius: 10px; border: 1px solid #dcfce7; }
-            .toc h2 { color: #065f46; border-bottom: 2px solid #065f46; padding-bottom: 10px; }
-            .toc-item { padding: 10px 0; border-bottom: 1px solid #dcfce7; }
-            .foreword { background-color: #fffbeb; padding: 30px; border-radius: 10px; border-left: 6px solid #f59e0b; }
-            h2 { color: #047857; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-top: 30px; }
-            p { margin-bottom: 1.2em; text-align: justify; }
-            pre { background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 10pt; }
+            @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600&display=swap');
+            @page { margin: 20mm 15mm; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Tahoma, 'Sarabun', 'Noto Sans Thai', sans-serif; padding: 25px; color: #333; line-height: 2.0; }
+            h1 { font-size: 26pt; line-height: 1.4; margin: 20px 0 15px 0; color: #1e40af; }
+            h2 { font-size: 20pt; line-height: 1.4; margin: 25px 0 12px 0; color: #1d4ed8; border-bottom: 1px solid #dbeafe; padding-bottom: 8px; }
+            h3 { font-size: 16pt; line-height: 1.5; margin: 20px 0 10px 0; color: #1e40af; }
+            h4 { font-size: 14pt; line-height: 1.5; margin: 15px 0 8px 0; color: #333; }
+            p { margin-bottom: 1em; line-height: 2.0; text-align: justify; }
+            .cover { text-align: center; padding: 80px 20px; background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%); color: white; border-radius: 15px; margin-bottom: 40px; }
+            .cover h1 { color: white; font-size: 38pt; margin-bottom: 20px; line-height: 1.3; }
+            .cover p { font-size: 16pt; opacity: 0.9; line-height: 1.6; margin-bottom: 0; }
+            .section { padding: 15px 0; }
+            .toc { background-color: #eff6ff; padding: 25px; border-radius: 10px; border: 1px solid #bfdbfe; margin-bottom: 20px; }
+            .toc h2 { color: #1d4ed8; border-bottom: 2px solid #1d4ed8; padding-bottom: 10px; margin-top: 0; }
+            .toc-item { padding: 10px 0; border-bottom: 1px solid #bfdbfe; line-height: 1.8; }
+            .toc-item:last-child { border-bottom: none; }
+            .foreword { background-color: #fffbeb; padding: 25px; border-radius: 10px; border-left: 6px solid #f59e0b; line-height: 2.0; margin-bottom: 20px; }
+            .foreword p { line-height: 2.0; }
+            pre { background: #f4f4f4; padding: 15px; border-radius: 8px; font-size: 10pt; line-height: 1.6; margin: 12px 0; overflow-x: auto; }
+            code { font-family: 'Courier New', monospace; font-size: 10pt; background: #f0f0f0; padding: 2px 5px; border-radius: 3px; }
+            ul, ol { margin: 10px 0 10px 25px; line-height: 2.0; }
+            li { margin-bottom: 5px; line-height: 2.0; }
+            blockquote { margin: 15px 0; padding: 10px 20px; border-left: 4px solid #2563eb; background: #f8fafc; line-height: 2.0; }
+            img { max-width: 100%; height: auto; margin: 15px 0; }
+            hr { margin: 25px 0; border: none; border-top: 1px solid #e2e8f0; }
         </style>
     </head>
     <body>
@@ -959,26 +1182,27 @@ exportPdfBtn.onclick = async function() {
 
     pdfHtml += `</body></html>`;
 
-    var opt = {
-        margin: 15,
-        filename: `ebook_${ebookData.topic.replace(/\s+/g, '_')}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-    };
-
     try {
-        // Pass the HTML string directly to html2pdf
-        await html2pdf().from(pdfHtml).set(opt).save();
-        
         Swal.close();
-        Swal.fire({
-            icon: 'success',
-            title: 'PDF Exported!',
-            text: 'Your PDF ebook has been downloaded.',
-            confirmButtonColor: '#059669'
-        });
+
+        var printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Popup Blocked',
+                text: 'Please allow popups for this site to use Print to PDF.',
+                confirmButtonColor: '#2563eb'
+            });
+            return;
+        }
+        printWindow.document.open();
+        printWindow.document.write(pdfHtml);
+        printWindow.document.close();
+
+        printWindow.focus();
+        setTimeout(function() {
+            printWindow.print();
+        }, 500);
     } catch (error) {
         console.error('PDF Export Error:', error);
         Swal.close();
@@ -986,7 +1210,10 @@ exportPdfBtn.onclick = async function() {
             icon: 'error',
             title: 'Export Failed',
             text: 'An error occurred while generating the PDF: ' + error.message,
-            confirmButtonColor: '#059669'
+            confirmButtonColor: '#2563eb'
         });
     }
 };
+
+
+
